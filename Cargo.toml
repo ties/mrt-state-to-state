@@ -1,0 +1,10 @@
+[package]
+name = "mrt_state_to_state"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bgpkit-parser = { version = "0.11.0", features = ["oneio"] }
+clap = { version = "4.5.32", features = ["derive"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_yaml = "0.9.34"
