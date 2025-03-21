@@ -1,4 +1,6 @@
 mod bgp_state;
+mod mrt_processor;
+mod util;
 
 use clap::Parser;
 use serde::{Deserialize, Serialize};
@@ -17,7 +19,8 @@ struct Args {
 // Define a struct that represents your YAML data structure
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {
-    file_list: Vec<String>,
+    initial_state: Option<String>,
+    update_files: Vec<String>,
 }
 
 // Function to load config from YAML file
@@ -39,6 +42,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     println!("Loaded configuration from: {}", args.config);
     println!("Config: {:?}", config);
+
+    let mut processor = mrt_processor::MrtProcessor::new();
+    config.initial_state.map(|file| processor.process_bview(file));
+
+    for file in &config.update_files {
+        processor.process_update_file(file)?;
+    }
+
     
     Ok(())
 }

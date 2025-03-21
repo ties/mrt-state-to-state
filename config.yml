@@ -1,7 +1,7 @@
 # All files between 00:00 and 07:59 for RRC13.
-file_list:
-  - mrts/rrc13-bview.20250320.0000.gz
-  - mrts/rrc13-bview.20250320.0800.gz
+initial_state: mrts/rrc13-bview.20250320.0000.gz
+
+update_files:
   - mrts/rrc13-updates.20250320.0000.gz
   - mrts/rrc13-updates.20250320.0005.gz
   - mrts/rrc13-updates.20250320.0010.gz
