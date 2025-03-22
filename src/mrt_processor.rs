@@ -100,8 +100,15 @@ impl MrtProcessor {
                                         }
                                     }
                                 },
-                                bgpkit_parser::models::BgpMessage::KeepAlive => todo!(),
-                                bgpkit_parser::models::BgpMessage::Notification(bgp_notification_message) => todo!(),
+                                bgpkit_parser::models::BgpMessage::KeepAlive => {
+                                    // Update last timestamp for peer
+                                    peer_state.update_last_message_timestamp(ts);
+                                },
+                                bgpkit_parser::models::BgpMessage::Notification(bgp_notification_message) => {
+                                    log::info!("{}: Received notification message from peer: {:?}", ts, bgp_notification_message);
+                                    // Move state to idle.
+                                    peer_state.update_connection_state(ts, ConnectionState::Idle);
+                                }
                             }
                         },
                         bgpkit_parser::models::Bgp4MpEnum::StateChange(msg) => {

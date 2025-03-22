@@ -119,7 +119,7 @@ impl BgpState {
         self.last_message_timestamp = Some(ts);
     }
 
-    fn update_last_message_timestamp(&mut self, timestamp: DateTime<Utc>) {
+    pub fn update_last_message_timestamp(&mut self, timestamp: DateTime<Utc>) {
         self.last_message_timestamp = self.last_message_timestamp
             .map(|ts| ts.max(timestamp))
             .or(Some(timestamp));
