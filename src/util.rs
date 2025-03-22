@@ -28,3 +28,19 @@ pub fn mrt_record_ts(record: &MrtRecord) -> DateTime<Utc> {
         Some(us) => DateTime::from_timestamp(record.common_header.timestamp as i64, 1000*us).unwrap(),
     }
 }
+
+/// Extension trait for DateTime<Utc> that adds conversion to f64 timestamp
+pub trait DateTimeExt {
+    /// Convert to seconds since epoch as f64
+    fn to_timestamp_f64(&self) -> f64;
+}
+
+impl DateTimeExt for DateTime<Utc> {
+    fn to_timestamp_f64(&self) -> f64 {
+        self.timestamp() as f64 +
+        self.timestamp_subsec_nanos() as f64 / 1_000_000_000.0
+    }
+}
+
+// Then use it like:
+// let timestamp = some_datetime.to_timestamp_f64();

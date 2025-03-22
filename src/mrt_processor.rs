@@ -1,7 +1,7 @@
-use bgpkit_parser::{BgpkitParser, ParserError};
+use bgpkit_parser::{BgpkitParser, Elementor, ParserError};
 use std::{collections::HashMap, net::IpAddr, path::Path};
-use crate::bgp_state::{Announcement, BgpState};
-use crate::util::mrt_record_ts;
+use crate::bgp_state::{Announcement, BgpKitStateExt, BgpState, ConnectionState};
+use crate::util::{mrt_record_ts, DateTimeExt};
 
 /// Processor for MRT (Multi-threaded Routing Toolkit) files
 pub struct MrtProcessor {
@@ -26,7 +26,6 @@ impl BgpPeer {
         }
     }
 }
-
 
 impl MrtProcessor {
     /// Create a new MRT processor
@@ -53,7 +52,7 @@ impl MrtProcessor {
                     peer_state.update_prefix(elem);
                 },
                 bgpkit_parser::models::ElemType::WITHDRAW => {
-                    peer_state.withdraw_prefix(elem);
+                    peer_state.withdraw_prefix(elem.timestamp, elem.prefix);
                 },
             }
         }
@@ -65,7 +64,7 @@ impl MrtProcessor {
     pub fn process_update_file<P: AsRef<Path>>(&mut self, file_path: P) -> Result<(),  Box<dyn std::error::Error>> {
         let file_str = file_path.as_ref().display().to_string();
         println!("Processing update file: {}", file_str);
-        
+
         // Create a parser for the MRT file
         let parser = BgpkitParser::new(file_path.as_ref().to_str().unwrap())?;
 
@@ -75,6 +74,47 @@ impl MrtProcessor {
 
             match record.message {
                 bgpkit_parser::models::MrtMessage::Bgp4Mp(msg) => {
+                    match msg {
+                        bgpkit_parser::models::Bgp4MpEnum::Message(msg) => {
+                            let peer = BgpPeer {
+                                address: msg.peer_ip,
+                                peer_as: msg.peer_asn.to_u32(),
+                            };
+                            let peer_state = self.current_state.entry(peer).or_insert_with(BgpState::new);
+
+                            match msg.bgp_message {
+                                bgpkit_parser::models::BgpMessage::Open(bgp_open_message) => todo!(),
+                                bgpkit_parser::models::BgpMessage::Update(bgp_update_message) => {
+                                    // Construct the BgpElems from the BgpUpdateMessage
+                                    // TODO: Construct only the updates, use the withdraws based on the information already available.
+                                    let elements = bgpkit_parser::Elementor::bgp_update_to_elems(bgp_update_message, ts.to_timestamp_f64(), &msg.peer_ip, &msg.peer_asn);
+
+                                    for elem in elements {
+                                        match elem.elem_type {
+                                            bgpkit_parser::models::ElemType::ANNOUNCE => {
+                                                peer_state.update_prefix(elem);
+                                            },
+                                            bgpkit_parser::models::ElemType::WITHDRAW => {
+                                                peer_state.withdraw_prefix(elem.timestamp, elem.prefix);
+                                            },
+                                        }
+                                    }
+                                },
+                                bgpkit_parser::models::BgpMessage::KeepAlive => todo!(),
+                                bgpkit_parser::models::BgpMessage::Notification(bgp_notification_message) => todo!(),
+                            }
+                        },
+                        bgpkit_parser::models::Bgp4MpEnum::StateChange(msg) => {
+                            let peer = BgpPeer {
+                                address: msg.peer_addr,
+                                peer_as: msg.peer_asn.to_u32(),
+                            };
+                            let peer_state = self.current_state.entry(peer).or_insert_with(BgpState::new);
+                            peer_state.update_connection_state(ts, msg.new_state.to_connection_state());
+                        },
+
+                    }
+
 
                 },
                 _ => {
@@ -82,11 +122,11 @@ impl MrtProcessor {
                 }
             }
         }
-        
+
         println!("Finished processing file: {}", file_path.as_ref().display());
         Ok(())
     }
-    
+
     /// Get the current BGP state
     pub fn get_current_state(&self) -> &HashMap<BgpPeer, BgpState> {
         &self.current_state

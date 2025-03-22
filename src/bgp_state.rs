@@ -26,6 +26,22 @@ pub enum ConnectionState {
     Established,
 }
 
+pub trait BgpKitStateExt {
+    fn to_connection_state(&self) -> ConnectionState;
+}
+
+impl BgpKitStateExt for bgpkit_parser::models::BgpState {
+    fn to_connection_state(&self) -> ConnectionState {
+        match self {
+            bgpkit_parser::models::BgpState::Idle => ConnectionState::Idle,
+            bgpkit_parser::models::BgpState::Connect => ConnectionState::Connect,
+            bgpkit_parser::models::BgpState::Active => ConnectionState::Active,
+            bgpkit_parser::models::BgpState::OpenSent => ConnectionState::OpenSent,
+            bgpkit_parser::models::BgpState::OpenConfirm => ConnectionState::OpenConfirm,
+            bgpkit_parser::models::BgpState::Established => ConnectionState::Established,
+        }
+    }
+}
 
 /// Represents a BGP route announcement
 #[derive(Debug, Clone)]
@@ -88,9 +104,19 @@ impl BgpState {
     }
 
     /// Updates the connection state and timestamp
-    pub fn update_connection_state(&mut self, new_state: ConnectionState) {
+    pub fn update_connection_state(&mut self, ts: DateTime<Utc>, new_state: ConnectionState) {
+        match (&self.connection_state, &new_state) {
+            (ConnectionState::Established, ConnectionState::Established) => {
+                log::warn!("{}: Connection state changed from Established to Established for peer.", ts);
+            },
+            _ => {
+                self.prefix_announcements.clear();
+            },
+        }
+
+        self.prefix_announcements.clear();
         self.connection_state = new_state;
-        panic!("Need to switch based on new state.");
+        self.last_message_timestamp = Some(ts);
     }
 
     fn update_last_message_timestamp(&mut self, timestamp: DateTime<Utc>) {
@@ -108,8 +134,8 @@ impl BgpState {
         self.prefix_announcements.insert(prefix, announcement);
     }
 
-    pub fn withdraw_prefix(&mut self, elem: BgpElem) {
-        self.update_last_message_timestamp(timestamp_to_datetime(elem.timestamp));
-        self.prefix_announcements.remove(&elem.prefix);
+    pub fn withdraw_prefix(&mut self, ts: f64, prefix: NetworkPrefix) {
+        self.update_last_message_timestamp(timestamp_to_datetime(ts));
+        self.prefix_announcements.remove(&prefix);
     }
 }
