@@ -98,6 +98,9 @@ impl MrtProcessor {
                             match msg.bgp_message {
                                 bgpkit_parser::models::BgpMessage::Open(bgp_open_message) => {
                                     log::debug!("{}: Received open message from peer: {:?}", ts, bgp_open_message);
+                                    if !bgp_open_message.opt_params.is_empty() {
+                                        log::info!("[{}/{}] OPEN: {:?}", msg.peer_ip, msg.peer_asn, bgp_open_message.opt_params);
+                                    }
                                     peer_state.open_message(ts, bgp_open_message);
                                 },
                                 bgpkit_parser::models::BgpMessage::Update(bgp_update_message) => {

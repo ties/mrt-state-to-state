@@ -134,10 +134,12 @@ impl BgpState {
         match (&self.connection_state, &new_state) {
             (ConnectionState::Established, ConnectionState::Established) => {
                 log::warn!("{}: Connection state changed from Established to Established for peer.", ts);
+                self.last_message_timestamp = Some(ts);
             },
             (_, ConnectionState::Established) => {
                 log::warn!("{}: Connection state changed from {} to Established for peer.", ts, self.connection_state);
                 self.prefix_announcements.clear();
+                self.last_message_timestamp = Some(ts);
             },
             (_, ConnectionState::Idle) => {
                 self.prefix_announcements.clear();
@@ -145,12 +147,11 @@ impl BgpState {
             },
             _ => {
                 self.prefix_announcements.clear();
+                self.last_message_timestamp = None;
             },
         }
 
-        self.prefix_announcements.clear();
         self.connection_state = new_state;
-        self.last_message_timestamp = Some(ts);
     }
 
     pub fn update_last_message_timestamp(&mut self, timestamp: DateTime<Utc>) {
