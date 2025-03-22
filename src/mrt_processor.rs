@@ -37,7 +37,7 @@ impl MrtProcessor {
 
     pub fn process_bview<P: AsRef<Path>>(&mut self, file_path: P) -> Result<(),  Box<dyn std::error::Error>> {
         let file_str = file_path.as_ref().display().to_string();
-        println!("Processing bview: {}", file_str);
+        log::info!("Processing bview: {}", file_str);
 
         // Clear the current state
         self.current_state.clear();
@@ -63,7 +63,7 @@ impl MrtProcessor {
     /// Process an MRT file at the given path
     pub fn process_update_file<P: AsRef<Path>>(&mut self, file_path: P) -> Result<(),  Box<dyn std::error::Error>> {
         let file_str = file_path.as_ref().display().to_string();
-        println!("Processing update file: {}", file_str);
+        log::info!("Processing update file: {}", file_str);
 
         // Create a parser for the MRT file
         let parser = BgpkitParser::new(file_path.as_ref().to_str().unwrap())?;
@@ -84,10 +84,8 @@ impl MrtProcessor {
 
                             match msg.bgp_message {
                                 bgpkit_parser::models::BgpMessage::Open(bgp_open_message) => {
-                                    log::info!("{}: Received open message from peer: {:?}", ts, bgp_open_message);
-                                    // Move state to established.
-                                    peer_state.update_connection_state(ts, ConnectionState::Established);
-
+                                    log::debug!("{}: Received open message from peer: {:?}", ts, bgp_open_message);
+                                    peer_state.open_message(ts, bgp_open_message);
                                 },
                                 bgpkit_parser::models::BgpMessage::Update(bgp_update_message) => {
                                     // Construct the BgpElems from the BgpUpdateMessage
@@ -110,7 +108,7 @@ impl MrtProcessor {
                                     peer_state.update_last_message_timestamp(ts);
                                 },
                                 bgpkit_parser::models::BgpMessage::Notification(bgp_notification_message) => {
-                                    log::info!("{}: Received notification message from peer: {:?}", ts, bgp_notification_message);
+                                    log::debug!("{}: Received notification message from peer: {:?}", ts, bgp_notification_message);
                                     // Move state to idle.
                                     peer_state.update_connection_state(ts, ConnectionState::Idle);
                                 }
@@ -126,8 +124,6 @@ impl MrtProcessor {
                         },
 
                     }
-
-
                 },
                 _ => {
                     return Err(format!("Unsupported content: Update file {file_str} might be a bview.").into());
@@ -135,7 +131,7 @@ impl MrtProcessor {
             }
         }
 
-        println!("Finished processing file: {}", file_path.as_ref().display());
+        log::info!("Finished processing file: {}", file_path.as_ref().display());
         Ok(())
     }
 

@@ -28,20 +28,22 @@ fn load_config(path: &str) -> Result<Config, Box<dyn std::error::Error>> {
     let mut file = File::open(path)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    
+
     let config: Config = serde_yaml::from_str(&contents)?;
     Ok(config)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
     // Parse command line arguments
     let args = Args::parse();
-    
+
     // Load configuration from the specified file
     let config = load_config(&args.config)?;
-    
-    println!("Loaded configuration from: {}", args.config);
-    println!("Config: {:?}", config);
+
+    log::info!("Loaded configuration from: {}", args.config);
+    log::debug!("Config: {:?}", config);
 
     let mut processor = mrt_processor::MrtProcessor::new();
     config.initial_state.map(|file| processor.process_bview(file));
@@ -50,6 +52,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         processor.process_update_file(file)?;
     }
 
-    
+
     Ok(())
 }

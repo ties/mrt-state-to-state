@@ -1,8 +1,9 @@
+use core::fmt;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::path::Display;
 use std::time::{SystemTime, UNIX_EPOCH};
-use bgpkit_parser::models::{AsPath, BgpElem, MetaCommunitiesIter, MetaCommunity, NetworkPrefix, Origin};
+use bgpkit_parser::models::{AsPath, BgpElem, BgpOpenMessage, MetaCommunitiesIter, MetaCommunity, NetworkPrefix, OptParam, Origin};
 use chrono::{DateTime, Utc};
 
 /// Represents the state of a BGP connection
@@ -14,6 +15,10 @@ pub struct BgpState {
     pub last_message_timestamp: Option<DateTime<Utc>>,
     /// Map from IP prefix to the last announcement for that prefix
     pub prefix_announcements: HashMap<NetworkPrefix, Announcement>,
+    /// Hold time from last open message
+    pub hold_time: Option<u16>,
+    /// BGP options
+    pub options: Option<Vec<OptParam>>,
 }
 
 /// Represents the possible states of a BGP connection
@@ -27,20 +32,19 @@ pub enum ConnectionState {
     Established,
 }
 
-impl Display for ConnectionState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let state_str = match self {
-            ConnectionState::Idle => "Idle",
-            ConnectionState::Connect => "Connect",
-            ConnectionState::Active => "Active",
-            ConnectionState::OpenSent => "OpenSent",
-            ConnectionState::OpenConfirm => "OpenConfirm",
-            ConnectionState::Established => "Established",
-        };
-
-        write!(f, "{}", state_str)
+impl fmt::Display for ConnectionState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ConnectionState::Idle => write!(f, "Idle"),
+            ConnectionState::Connect => write!(f, "Connect"),
+            ConnectionState::Active => write!(f, "Active"),
+            ConnectionState::OpenSent => write!(f, "OpenSent"),
+            ConnectionState::OpenConfirm => write!(f, "OpenConfirm"),
+            ConnectionState::Established => write!(f, "Established"),
+        }
     }
 }
+
 
 pub trait BgpKitStateExt {
     fn to_connection_state(&self) -> ConnectionState;
@@ -99,7 +103,7 @@ impl Announcement {
         Ok(Announcement {
             timestamp,
             as_path: elem.as_path.clone(),
-            origin: elem.origin.clone(),
+            origin: elem.origin,
             local_pref: elem.local_pref,
             next_hop: elem.next_hop,
             med: elem.med,
@@ -116,7 +120,15 @@ impl BgpState {
             connection_state: ConnectionState::Idle,
             last_message_timestamp: None,
             prefix_announcements: HashMap::new(),
+            hold_time: None,
+            options: None,
         }
+    }
+
+    pub fn open_message(&mut self, ts: DateTime<Utc>, msg: BgpOpenMessage) {
+        self.update_connection_state(ts, ConnectionState::OpenSent);
+        self.hold_time = Some(msg.hold_time);
+        self.options = Some(msg.opt_params);
     }
 
     /// Updates the connection state and timestamp
