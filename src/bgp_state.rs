@@ -1,24 +1,22 @@
 use core::fmt;
 use std::collections::HashMap;
 use std::net::IpAddr;
-use std::path::Display;
-use std::time::{SystemTime, UNIX_EPOCH};
-use bgpkit_parser::models::{AsPath, BgpElem, BgpOpenMessage, MetaCommunitiesIter, MetaCommunity, NetworkPrefix, OptParam, Origin};
+use bgpkit_parser::models::{AsPath, BgpElem, BgpOpenMessage, MetaCommunity, NetworkPrefix, OptParam, Origin};
 use chrono::{DateTime, Utc};
 
 /// Represents the state of a BGP connection
 #[derive(Debug, Clone)]
 pub struct BgpState {
     /// The current state of the BGP connection (e.g. Established, Active, etc.)
-    pub connection_state: ConnectionState,
+    connection_state: ConnectionState,
     /// Timestamp of the last received message
-    pub last_message_timestamp: Option<DateTime<Utc>>,
+    last_message_timestamp: Option<DateTime<Utc>>,
     /// Map from IP prefix to the last announcement for that prefix
-    pub prefix_announcements: HashMap<NetworkPrefix, Announcement>,
+    prefix_announcements: HashMap<NetworkPrefix, Announcement>,
     /// Hold time from last open message
-    pub hold_time: Option<u16>,
+    hold_time: Option<u16>,
     /// BGP options
-    pub options: Option<Vec<OptParam>>,
+    options: Option<Vec<OptParam>>
 }
 
 /// Represents the possible states of a BGP connection

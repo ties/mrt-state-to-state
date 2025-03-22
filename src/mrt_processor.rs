@@ -1,12 +1,7 @@
-use bgpkit_parser::{BgpkitParser, Elementor, ParserError};
+use bgpkit_parser::BgpkitParser;
 use std::{collections::HashMap, net::IpAddr, path::Path};
-use crate::bgp_state::{Announcement, BgpKitStateExt, BgpState, ConnectionState};
+use crate::bgp_state::{BgpKitStateExt, BgpState, ConnectionState};
 use crate::util::{mrt_record_ts, DateTimeExt};
-
-/// Processor for MRT (Multi-threaded Routing Toolkit) files
-pub struct MrtProcessor {
-    current_state: HashMap<BgpPeer, BgpState>,
-}
 
 /// Represents an IP prefix (address + prefix length)
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -25,6 +20,11 @@ impl BgpPeer {
             peer_as: elem.peer_asn.to_u32(),
         }
     }
+}
+
+/// Processor for MRT (Multi-threaded Routing Toolkit) files
+pub struct MrtProcessor {
+    current_state: HashMap<BgpPeer, BgpState>,
 }
 
 impl MrtProcessor {
