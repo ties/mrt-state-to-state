@@ -83,7 +83,12 @@ impl MrtProcessor {
                             let peer_state = self.current_state.entry(peer).or_insert_with(BgpState::new);
 
                             match msg.bgp_message {
-                                bgpkit_parser::models::BgpMessage::Open(bgp_open_message) => todo!(),
+                                bgpkit_parser::models::BgpMessage::Open(bgp_open_message) => {
+                                    log::info!("{}: Received open message from peer: {:?}", ts, bgp_open_message);
+                                    // Move state to established.
+                                    peer_state.update_connection_state(ts, ConnectionState::Established);
+
+                                },
                                 bgpkit_parser::models::BgpMessage::Update(bgp_update_message) => {
                                     // Construct the BgpElems from the BgpUpdateMessage
                                     // TODO: Construct only the updates, use the withdraws based on the information already available.

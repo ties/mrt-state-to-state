@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::net::IpAddr;
+use std::path::Display;
 use std::time::{SystemTime, UNIX_EPOCH};
 use bgpkit_parser::models::{AsPath, BgpElem, MetaCommunitiesIter, MetaCommunity, NetworkPrefix, Origin};
 use chrono::{DateTime, Utc};
@@ -24,6 +25,21 @@ pub enum ConnectionState {
     OpenSent,
     OpenConfirm,
     Established,
+}
+
+impl Display for ConnectionState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let state_str = match self {
+            ConnectionState::Idle => "Idle",
+            ConnectionState::Connect => "Connect",
+            ConnectionState::Active => "Active",
+            ConnectionState::OpenSent => "OpenSent",
+            ConnectionState::OpenConfirm => "OpenConfirm",
+            ConnectionState::Established => "Established",
+        };
+
+        write!(f, "{}", state_str)
+    }
 }
 
 pub trait BgpKitStateExt {
@@ -108,6 +124,10 @@ impl BgpState {
         match (&self.connection_state, &new_state) {
             (ConnectionState::Established, ConnectionState::Established) => {
                 log::warn!("{}: Connection state changed from Established to Established for peer.", ts);
+            },
+            (_, ConnectionState::Established) => {
+                log::warn!("{}: Connection state changed from {} to Established for peer.", ts, self.connection_state);
+                self.prefix_announcements.clear();
             },
             _ => {
                 self.prefix_announcements.clear();
