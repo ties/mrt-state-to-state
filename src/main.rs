@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     log::info!("Loaded configuration from: {}", args.config);
     log::debug!("Config: {:?}", config);
 
-    let mut processor = mrt_processor::MrtProcessor::new();
+    let mut processor = mrt_processor::MrtProcessor::new(180,Some(3));
     config.initial_state.map(|file| processor.process_bview(file));
 
     for file in &config.update_files {

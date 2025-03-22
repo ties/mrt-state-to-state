@@ -1,4 +1,5 @@
 use bgpkit_parser::BgpkitParser;
+use chrono::{DateTime, Utc};
 use std::{collections::HashMap, net::IpAddr, path::Path};
 use crate::bgp_state::{BgpKitStateExt, BgpState, ConnectionState};
 use crate::util::{mrt_record_ts, DateTimeExt};
@@ -25,14 +26,22 @@ impl BgpPeer {
 /// Processor for MRT (Multi-threaded Routing Toolkit) files
 pub struct MrtProcessor {
     current_state: HashMap<BgpPeer, BgpState>,
+    send_hold_time_multiple: Option<u16>,
+    default_hold_time: u16,
 }
 
 impl MrtProcessor {
     /// Create a new MRT processor
-    pub fn new() -> Self {
+    pub fn new(default_hold_time: u16, send_hold_time_multiple: Option<u16>) -> Self {
         MrtProcessor {
             current_state: HashMap::new(),
+            send_hold_time_multiple,
+            default_hold_time
         }
+    }
+
+    pub fn default() -> Self {
+        MrtProcessor::new(180, None)
     }
 
     pub fn process_bview<P: AsRef<Path>>(&mut self, file_path: P) -> Result<(),  Box<dyn std::error::Error>> {
@@ -68,9 +77,13 @@ impl MrtProcessor {
         // Create a parser for the MRT file
         let parser = BgpkitParser::new(file_path.as_ref().to_str().unwrap())?;
 
+        // Last timestamp seen over all peers
+        let mut last_ts: Option<DateTime<Utc>> = None;
+
         // Iterate over BGP messages in the file
         for record in parser.into_record_iter() {
             let ts = mrt_record_ts(&record);
+            last_ts = last_ts.map(|old| old.max(ts)).or_else(|| Some(ts));
 
             match record.message {
                 bgpkit_parser::models::MrtMessage::Bgp4Mp(msg) => {
@@ -127,6 +140,33 @@ impl MrtProcessor {
                 },
                 _ => {
                     return Err(format!("Unsupported content: Update file {file_str} might be a bview.").into());
+                }
+            }
+        }
+
+        // Check peers for validity
+        if let Some(last_ts) = last_ts {
+            for (peer, state) in self.current_state.iter_mut() {
+                if state.connection_state == ConnectionState::Idle {
+                    continue;
+                }
+                // Only for peers that have last messages
+                if let Some(last_message_ts) = state.last_message_timestamp {
+                    let hold_time = match state.hold_time {
+                        Some(hold_time) => hold_time,
+                        None => {
+                            log::warn!("{}: Peer {:?} does not have a hold time - no open message.", last_ts, peer);
+                            self.default_hold_time
+                        }
+                    };
+
+                    let effective_hold_time = self.send_hold_time_multiple.unwrap_or(1) * hold_time;
+                    let cutoff = last_ts + chrono::Duration::seconds(effective_hold_time as i64);
+
+                    if last_message_ts < cutoff {
+                        log::info!("Hold timer expired for {:?}, last message at {} (cutoff: {}), resetting state to idle.", peer, last_message_ts, cutoff);
+                        state.update_connection_state(last_ts, ConnectionState::Idle);
+                    }
                 }
             }
         }

@@ -8,13 +8,13 @@ use chrono::{DateTime, Utc};
 #[derive(Debug, Clone)]
 pub struct BgpState {
     /// The current state of the BGP connection (e.g. Established, Active, etc.)
-    connection_state: ConnectionState,
+    pub connection_state: ConnectionState,
     /// Timestamp of the last received message
-    last_message_timestamp: Option<DateTime<Utc>>,
+    pub last_message_timestamp: Option<DateTime<Utc>>,
     /// Map from IP prefix to the last announcement for that prefix
     prefix_announcements: HashMap<NetworkPrefix, Announcement>,
     /// Hold time from last open message
-    hold_time: Option<u16>,
+    pub hold_time: Option<u16>,
     /// BGP options
     options: Option<Vec<OptParam>>
 }
@@ -138,6 +138,10 @@ impl BgpState {
             (_, ConnectionState::Established) => {
                 log::warn!("{}: Connection state changed from {} to Established for peer.", ts, self.connection_state);
                 self.prefix_announcements.clear();
+            },
+            (_, ConnectionState::Idle) => {
+                self.prefix_announcements.clear();
+                self.last_message_timestamp = None;
             },
             _ => {
                 self.prefix_announcements.clear();
