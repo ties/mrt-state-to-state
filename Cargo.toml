@@ -1,7 +1,7 @@
 [package]
 name = "mrt_state_to_state"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
 bgpkit-parser = { version = "0.11.0", features = ["oneio"] }
@@ -11,3 +11,8 @@ env_logger = "0.11.7"
 log = "0.4.26"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_yaml = "0.9.34"
+
+[dev-dependencies]
+reqwest = { version = "0.12.12", features = ["blocking", "gzip"] }
+flate2 = "1.0.36"
+tempfile = "3.13.0"
