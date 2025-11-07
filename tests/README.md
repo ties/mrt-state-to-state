@@ -44,7 +44,7 @@ The tests automatically download MRT files from:
   - https://data.ris.ripe.net/rrc18/2023.05/updates.20230501.0005.gz
   - https://data.ris.ripe.net/rrc18/2023.05/updates.20230501.0010.gz
 
-Downloaded files are cached in the `test_data/` directory to avoid re-downloading on subsequent test runs.
+Downloaded files are cached in the `test_data/` directory to avoid re-downloading on subsequent test runs. Files are stored in their compressed format (.gz) and decompressed automatically by bgpkit-parser's oneio feature when parsed.
 
 ## Test Data Cache
 

@@ -13,6 +13,5 @@ serde = { version = "1.0.219", features = ["derive"] }
 serde_yaml = "0.9.34"
 
 [dev-dependencies]
-reqwest = { version = "0.12.12", features = ["blocking", "gzip"] }
-flate2 = "1.0.36"
+reqwest = { version = "0.12.12", features = ["blocking"] }
 tempfile = "3.13.0"

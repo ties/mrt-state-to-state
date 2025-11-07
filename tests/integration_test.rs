@@ -1,11 +1,9 @@
 use std::fs;
-use std::io::{Cursor, Write as IoWrite};
+use std::io::Write as IoWrite;
 use std::path::{Path, PathBuf};
-use flate2::read::GzDecoder;
-use std::io::Read;
-use tempfile::TempDir;
 
 /// Downloads a file from a URL and saves it to the specified path
+/// Files are saved as-is (compressed files remain compressed)
 fn download_file(url: &str, dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
     println!("Downloading {} to {:?}", url, dest);
 
@@ -15,22 +13,10 @@ fn download_file(url: &str, dest: &Path) -> Result<(), Box<dyn std::error::Error
     }
 
     let content = response.bytes()?;
+    let mut file = fs::File::create(dest)?;
+    file.write_all(&content)?;
 
-    // Check if the file is gzipped by looking at the URL extension
-    if url.ends_with(".gz") {
-        println!("Decompressing gzip file...");
-        let mut decoder = GzDecoder::new(Cursor::new(content));
-        let mut decompressed = Vec::new();
-        decoder.read_to_end(&mut decompressed)?;
-
-        let mut file = fs::File::create(dest)?;
-        file.write_all(&decompressed)?;
-    } else {
-        let mut file = fs::File::create(dest)?;
-        file.write_all(&content)?;
-    }
-
-    println!("Downloaded and saved to {:?}", dest);
+    println!("Downloaded and saved to {:?} ({} bytes)", dest, content.len());
     Ok(())
 }
 
@@ -64,13 +50,14 @@ fn test_parse_ripe_mrt_bview() -> Result<(), Box<dyn std::error::Error>> {
         .filter_level(log::LevelFilter::Info)
         .try_init();
 
-    // Download the bview file (initial BGP table state)
+    // Download the bview file (initial BGP table state) - kept as .gz
     let bview_url = "https://data.ris.ripe.net/rrc18/2023.05/bview.20230501.0000.gz";
-    let bview_path = get_mrt_file(bview_url, "bview.20230501.0000")?;
+    let bview_path = get_mrt_file(bview_url, "bview.20230501.0000.gz")?;
 
     println!("Testing with bview file: {:?}", bview_path);
 
     // Create a processor and load the initial state
+    // bgpkit-parser will automatically decompress the .gz file
     let mut processor = mrt_state_to_state::mrt_processor::MrtProcessor::default();
     processor.process_bview(&bview_path)?;
 
@@ -102,11 +89,11 @@ fn test_parse_ripe_mrt_updates() -> Result<(), Box<dyn std::error::Error>> {
         .filter_level(log::LevelFilter::Info)
         .try_init();
 
-    // Download the bview file (initial BGP table state)
+    // Download the bview file (initial BGP table state) - kept as .gz
     let bview_url = "https://data.ris.ripe.net/rrc18/2023.05/bview.20230501.0000.gz";
-    let bview_path = get_mrt_file(bview_url, "bview.20230501.0000")?;
+    let bview_path = get_mrt_file(bview_url, "bview.20230501.0000.gz")?;
 
-    // Download a few update files
+    // Download a few update files - kept as .gz
     let update_urls = vec![
         "https://data.ris.ripe.net/rrc18/2023.05/updates.20230501.0000.gz",
         "https://data.ris.ripe.net/rrc18/2023.05/updates.20230501.0005.gz",
@@ -115,8 +102,8 @@ fn test_parse_ripe_mrt_updates() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut update_paths = Vec::new();
     for url in &update_urls {
-        let filename = url.split('/').last().unwrap().replace(".gz", "");
-        let path = get_mrt_file(url, &filename)?;
+        let filename = url.split('/').last().unwrap();
+        let path = get_mrt_file(url, filename)?;
         update_paths.push(path);
     }
 
@@ -124,6 +111,7 @@ fn test_parse_ripe_mrt_updates() -> Result<(), Box<dyn std::error::Error>> {
     println!("Testing with {} update files", update_paths.len());
 
     // Create a processor and load the initial state
+    // bgpkit-parser will automatically decompress the .gz files
     let mut processor = mrt_state_to_state::mrt_processor::MrtProcessor::new(180, Some(3));
     processor.process_bview(&bview_path)?;
 
@@ -170,14 +158,15 @@ fn test_parse_single_update_file() -> Result<(), Box<dyn std::error::Error>> {
         .filter_level(log::LevelFilter::Debug)
         .try_init();
 
-    // Download just one update file for a quick test
+    // Download just one update file for a quick test - kept as .gz
     let update_url = "https://data.ris.ripe.net/rrc18/2023.05/updates.20230501.0000.gz";
-    let filename = "updates.20230501.0000";
+    let filename = "updates.20230501.0000.gz";
     let update_path = get_mrt_file(update_url, filename)?;
 
     println!("Testing with single update file: {:?}", update_path);
 
     // Create a processor (without initial bview, to test processing updates standalone)
+    // bgpkit-parser will automatically decompress the .gz file
     let mut processor = mrt_state_to_state::mrt_processor::MrtProcessor::default();
     processor.process_update_file(&update_path)?;
 
